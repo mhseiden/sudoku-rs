@@ -1,0 +1,8 @@
+[package]
+name = "sudoku"
+version = "0.1.0"
+authors = ["Max Seiden <max@sigmacomputing.io>"]
+
+[dependencies]
+env_logger = "0.4"
+log = "0.3"

@@ -83,11 +83,15 @@ fn try_guess(stats: &mut Stats, s: &mut Sudoku, guesses: &mut Guesses) -> Result
     Err(())
 }
 
-// (max) TODO investigate if making a better guess improves solution times
+// We find our next guess by searching for cells with the fewest number
+// of possible values. This way we increase the probability of each guess
+// being correct.
 fn find_next_guess(s: &Sudoku, guesses: &Guesses) -> Index {
-    for (idx, cell) in s.cells.iter().enumerate() {
-        if cell.count_ones() != 1 && !guesses.contains(&idx) {
-            return idx;
+    for ones in 2..10 {
+        for (idx, cell) in s.cells.iter().enumerate() {
+            if cell.count_ones() == ones && !guesses.contains(&idx) {
+                return idx;
+            }
         }
     }
     panic!("internal error - exhausted all guesses");

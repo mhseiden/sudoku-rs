@@ -126,7 +126,8 @@ impl Sudoku {
     }
 
     fn print(&self) -> Result<String, fmt::Error> {
-        let mut s = String::with_capacity(81 * 3);
+        // pad each cell with spaces and account for newlines
+        let mut s = String::with_capacity((81 * 3) + (9 * 2));
         for i in 0..9 {
             write!(&mut s, "\n")?;
             for j in 0..9 {
@@ -143,7 +144,7 @@ impl Sudoku {
     #[allow(dead_code)]
     fn debug_print(&self) {
         for (idx, cell) in self.cells.iter().enumerate() {
-            trace!("index[{:02}] : {:b}", idx, *cell);
+            trace!("index[{:02}] : {:010b}", idx, *cell);
         }
     }
 
@@ -190,7 +191,30 @@ impl Sudoku {
         Ok(())
     }
 
-    // applies adjacent values to a single cell
+    // This function visits each cell, and serves two purposes.
+    //
+    //  1. Build a bit mask of the intersecting row, col, and
+    //     square values relative to a single cell. These bits
+    //     dictate the values that the cell *can not* be set to.
+    //
+    //  2. Build a bit mask of the values that adjacent cells
+    //     *can not* be set to. Essentially, we want to know
+    //     which bits could satisfy the [1-9] constraints of
+    //     the adjacent row, col, and square.
+    //
+    //  After these two bit patterns have been computed, we
+    //  initialize the cell's bit pattern with the compliment
+    //  of (1) - these are the available bits for this cell.
+    //  We then or the bit patterns from (2) to obtain the
+    //  set of values that would satisfy the needs of all the
+    //  adjacent cells. This is then and'ed with the available
+    //  bits we computed before, and a mask is applied to drop
+    //  any artifacts that may have crept into the unused bits.
+    //
+    //  A cell is considered solved when the result of the above
+    //  yields a single bit in the output. If this is not the case,
+    //  then we again compute the compliment of (1) and set this
+    //  to be the cell's bit pattern.
     fn constrain(&mut self) -> Result<usize, ()> {
         let mut changed = 0;
 
@@ -202,7 +226,7 @@ impl Sudoku {
             let (i, j) = pair_from_cell(idx);
 
             let mut row_vals = 0;
-            let mut row_bp = 0b1111111110;
+            let mut row_bp = CELL_MASK;
             for j2 in (0..9).filter(|j2| *j2 != j) {
                 let cell = self.get_cell(cell_from_pair(i, j2));
                 row_bp &= !cell;
@@ -214,7 +238,7 @@ impl Sudoku {
             }
 
             let mut col_vals = 0;
-            let mut col_bp = 0b1111111110;
+            let mut col_bp = CELL_MASK;
             for i2 in (0..9).filter(|i2| *i2 != i) {
                 let cell = self.get_cell(cell_from_pair(i2, j));
                 col_bp &= !cell;
@@ -226,7 +250,7 @@ impl Sudoku {
             }
 
             let mut squ_vals = 0;
-            let mut squ_bp = 0b1111111110;
+            let mut squ_bp = CELL_MASK;
             let s = square_from_cell(idx);
             for c in 0..9 {
                 let idx2 = cell_from_square(s, c);
@@ -241,11 +265,11 @@ impl Sudoku {
                 }
             }
 
-            // initialize the bit pattern conflicting values
+            // initialize the bit pattern with the intersecting values
             let all_vals = row_vals | col_vals | squ_vals;
             let mut bp = !all_vals;
 
-            // add in the non-conflicting values and apply the mask
+            // add in the candidate values and apply the mask
             bp &= row_bp | col_bp | squ_bp;
             bp &= CELL_MASK;
 
